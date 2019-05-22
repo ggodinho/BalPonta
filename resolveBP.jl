@@ -40,15 +40,18 @@ nusiTerm = trunc(Int,nusiTerm)
 nCenariosNSimul = trunc(Int,nCenariosNSimul)
 nCenarioHidro = trunc(Int,nCenarioHidro)
 numAgrint = trunc(Int,numAgrint)
-serie = trunc(Int,serie)
+ncenNS = trunc(Int,serie)
 ApontadorPatamarCarga = round.(Int, ApontadorPatamarCarga)
 ApontadorIntercambio = round.(Int, ApontadorIntercambio)
 UHEsubsis = round.(Int,UHEsubsis)
 UHEsubsis = vec(UHEsubsis)
 UHEsubsis = replace(UHEsubsis, 14=>6, 15=>7)
 UTEsubsis = vec(round.(Int,UTE["subsistema"]))
+ApontadorInterc_FIC_de = ApontadorIntercambio[nsis+1:nsis+nfic,1:nsis]
+ApontadorInterc_FIC_para = ApontadorIntercambio[1:nsis,nsis+1:nsis+nfic]
 
 CVU = UTE["CVU"]
+LimInter = Intercambio["capacidade"]
 nInter = size(Intercambio["origem"],2)
 
 #Definindo penalidades:
@@ -59,6 +62,10 @@ PenSobra = 0.001;
 PenRG = maximum(CVU)*1.02;
 PenRO = maximum(CVU)*1.01;
 
+Ano_H = [1955; 2016]
+nCenarioHidro = size(Ano_H,1)
+Ano_h_count = Ano_H.-(1931+1)
+serie_h = Ano_h_count[iCenH]
 
 #Deficit = Float64[]
 
@@ -93,332 +100,207 @@ for iper = mesi:nper
         if probCenarioNS(iCenNS,iper) > 0
             #varre todos os cenarios hidrologicos
             for iCenH = 1:nCenarioHidro
-                iSerieH=SerieHidro(iCenH,anoSimulacao);
+                serie_h=SerieHidro(iCenH,anoSimulacao);
                 cenario=cenario+1;
                 println("   Período $(iper) Cenario $(cenario)");
 
                 #varre todos as horas
-                for ihora = 1:nHoras
+                for hora = 1:nHoras
                     #varre todos os cenarios de nao simuladas
                     # nesta etapa a Disponibilidade ainda esta agregada por subsistema, e
                     # sua informacao esta nas variaveis GHmax e GTmax
                     #dados de saida do PL
-                    [Deficit(iCenNS,iCenH,:,iper,ihora), ...
-                     Excesso(iCenNS,iCenH,:,iper,ihora), ...
-                     Interc(iCenNS,iCenH,:,:,iper,ihora), ...
-                     ViolaRNE(iCenNS,iCenH,iper,ihora), ...
-                     GH(iCenNS,iCenH,:,iper,ihora), ...
-                     GHusina(iCenNS,iCenH,:,iper,ihora), ...
-                     ViolaReservaOP(iCenNS,iCenH,:,iper,ihora), ...
-                     ViolaReservaGer(iCenNS,iCenH,:,iper,ihora), ...
-                     GT(iCenNS,iCenH,:,iper,ihora), ...
-                     GTusina(iCenNS,iCenH,:,iper,ihora)] = ... #dados de entrada do PL
-                      resolveBP(iper, ihora, ApontadorPatamarCarga(mes,ihora), nsis, nfic, nusi, nusiTerm, ...
-                          ApontadorSistema, Sistema, Mercado(:,iper).*PUMercado(:,mes,ihora), ...
-                          DispNS(iCenNS,:,iper,ihora), PenGH(iSerieH,:,iper,ApontadorPatamarCarga(mes,ihora)), ...
-                          UHEsubsis, GHmax(iSerieH,:,iper,ApontadorPatamarCarga(mes,ihora)), ROmax(:,iper,ihora), ...
-                          RGmax(iSerieH,:,iper,ApontadorPatamarCarga(mes,ihora)), ...
-                          GHmin(iSerieH,:,iper,ApontadorPatamarCarga(mes,ihora)), ...
-                          UTE.CVU(:,iper), UTE.disp(:,iper), UTE.despacho(iSerieH,:,iper,ApontadorPatamarCarga(mes,ihora)), ...
-                          UTE.subsistema, LimInterc(:,iper, ApontadorPatamarCarga(mes,ihora)), RORNEmax(iCenNS,iper,ihora), ...
-                          numAgrint, Agrint, Restricao, ApontadorConfHd, ApontadorConfT);
 
-
-#using Cbc # Open source solver. Must support integer programming.
-
-
-# x = range(-10.0, stop=10.0, length=500)
-# mat"plot($x, sin($x))"  # evaluate a MATLAB function
-#
-# y = range(2.0, stop=3.0, length=500)
-# mat"""
-#     $u = $x + $y
-# 	$v = $x - $y
-# """
-# @show u v
-
-
-
-# files = ["Deficit", "Excesso", "Interc","GH","GT","GTusina","Sobra"]
-# saidas = Dict()
-# for (n, f) in enumerate(files)
-#     if f == "Interc"
-#         saidas[f] = Dict("DE->PARA" =>Dict("mes" => Dict("hora" => Dict("scen" => []))), "PARA->DE" =>Dict("mes" => Dict("hora" => Dict("scen" => []))))
-#     elseif f == "GTusina"
-#         saidas[f] = Dict("ute" => Dict("mes" => Dict("hora" => Dict("scen" => []))))
-#     else
-#         saidas[f] = Dict("sistema" => Dict("mes" => Dict("hora" => Dict("scen" => []))))
-#     end
-# end
-
-#Convertendo de Float para Int
-
-
-# Deficit = zeros(nsis,nper,nHoras,nCenarios,nsim);
-# Excesso = zeros(nsis,nper,nHoras,nCenarios,nsim);
-# Interc = zeros(nsis+nfic,nsis+nfic,nper,nHoras,nCenarios,nsim);
-# GH = zeros(nsis,nper,nHoras,nCenarios,nsim);
-# GT = zeros(nsis,nper,nHoras,nCenarios,nsim);
-# GTusina = zeros(nusiTerm,nper,nHoras,nCenarios,nsim);
-# #fprint('Calculando balanço de ponta determinístico...')
-# Sobra = zeros(nsis,nper,nHoras,nCenarios);
-
-# LimInterc = Intercambio["capacidade"][:][mes,ApontadorPatamarCarga[mes,iper]]=
-iper = 5
-hora = 1
 Inflex = UTE["inflex"][1:nusiTerm,iper][1:nusiTerm]
 DispTerm = UTE["disp"][1:nusiTerm,iper][1:nusiTerm]
-DispNSim = DispNS[serie,:,iper,hora]
 pat = ApontadorPatamarCarga[iper,hora]
-serie_h = 1
 
-function resolveBP(iper, ihora, PatamarCarga, nsis, nfic, nUsiHidro, nUsiTerm, ApontadorSistema, Sistema, Mercado, DispNS, PenGH, ...
-        #UHEsubsis, DispHidro, ReservaOperativa, ReservaGeracao, GHMin, CVU, DispTerm, Inflex, ...
-        #UTEsis, LimInterc, ReservaOperativaRNE, numAgrint, Agrint, Restricao, ApontadorConfHd, ApontadorConfT)
-
-# # Resolve o seguinte problema:
-# # min sum(def) + PenInterc * sum(interc) + PenSobra * sum(sobra)
-# #     + PenGH*sum(GHusina) + PenReservPotencia*sum(violaReservaOp)
-# #     + PenReservGeracao*sum(violaResevaGer) + PenGT*sum(GT)
-# #     + PenReservPotencia*sum(violaRNE)
-# # s.a.
-# # sum(GHusina) + sum(GTusina) + Deficit - Sobra + Imp - Exp = Mercado - DispNS
-# # Imp < LimInterc
-# # Exp < LimInterc
-# # GHmin < GH - violaResevaGer < GHmax - ReservaGermax
-# # sum(GH) - sum(violaResevaGer) - violaReservPotencia < sum(GHmax) - sum(ReservaGermax) - PenReservPotenciamax
-# # violaReservaOp < ReservaOPmax
-# # violaReservaGer < ReservaGermax
-# # Inflex < GT < DispTerm
-# # sum(interc) < Agrint
-# # RNE - violaRNE < RNEmax - RORNEmax
-# # violaRNE < RORNEmax
-
-    #---> Declaração de variáveis
-
-
-#IntercAponta = zeros(size(LimInterc,1),size(LimInterc,1));
-
-#--------------------------------------------------------------------------
-# Montagem do problema
-#--------------------------------------------------------------------------
-#Escolhe o solver:
-BPontaProb = Model(with_optimizer(GLPK.Optimizer));
-
-#---> Variáveis do problema
-# Geração Hidroeletrica
-# ghid_ub = zeros(nsis)
-# reservaP_ub = zeros(nsis)
-
-# Geração Hidráulica e Reserva de Geracao
-@variable(BPontaProb, ghid[1:nusi] >= 0);
-@constraint(BPontaProb,[i=1:nusi], ghid[i] >= GHmin[serie_h,i,iper,pat])
-@constraint(BPontaProb,[i=1:nusi], ghid[i] <= GHmax[serie_h,i,iper,pat])
-
-#Reserva de Geração
-@variable(BPontaProb, violaReservaGer[1:nusi] >= 0);
-@constraint(BPontaProb,[i=1:nusi], violaReservaGer[i] <= ReservaGeracao[serie_h,i,iper,pat])
-
-# Reserva operativa
-@variable(BPontaProb, violaReservPotencia[1:nsis] >= 0);
-@constraint(BPontaProb, [i=1:nsis], violaReservPotencia[i] <= ROmax[i,iper,hora])
-
-# Geração Termoelétrica
-@variable(BPontaProb, gterm[1:nusiTerm]);
-@constraint(BPontaProb, [i=1:nusiTerm], gterm[i] >= Inflex[i])
-@constraint(BPontaProb, [i=1:nusiTerm], gterm[i] <= DispTerm[i])
-
-# Deficit
-@variable(BPontaProb, def[1:nsis] >= 0)
-
-# Sobras
-@variable(BPontaProb, sob[1:nsis] >= 0);
-
-# Intercambios
-@variable(BPontaProb, inter[1:nInter] >= 0)
-@constraint(BPontaProb, Rest_Inter[i=1:nInter], inter[i] <= Intercambio["capacidade"][i][iper,hora])
-# Liminter = zeros(nInter)
-# for i=1:nInter
-#     Liminter[i] = Intercambio["capacidade"][i][iper,hora]
-# end
-
-#---> Restrições do problema
-# Atendimento ao mercado
-@constraint(BPontaProb, Atend_Demanda[i=1:nsis],
-    sum(ghid[j] for j in findall(x -> x==i,UHEsubsis)) +
-    sum(gterm[j] for j in findall(x -> x==i,UTEsubsis)) + def[i] - sob[i] +
-    sum(inter[j] for j in ApontadorIntercambio[findall(x -> x>0, ApontadorIntercambio[:,i]),i]) -
-    sum(inter[j] for j in ApontadorIntercambio[i,findall(x -> x>0, ApontadorIntercambio[i,:])])
-    == Mercado[i,iper] - DispNSim[i])
-
-#Restrição de Geração Hidráulica
-@constraint(BPontaProb, [i=1:nusi], ghid[i] - violaReservaGer[i]
-    <= GHmax[serie_h,i,iper,pat] - ReservaGeracao[serie_h,i,iper,pat])
-
-#Restrição de Potência Operativa
-@constraint(BPontaProb, [i=1:nsis],
-    sum(ghid[j] for j in findall(x -> x==i,UHEsubsis))
-    - sum(violaReservaGer[j] for j in findall(x -> x==i,UHEsubsis))
-    - violaReservPotencia[i]
-    <= sum(GHmax[serie_h,j,iper,pat] for j in findall(x -> x==i,UHEsubsis))
-    - sum(ReservaGeracao[serie_h,j,iper,pat] for j in findall(x -> x==i,UHEsubsis))
-    - ROmax[i,iper,hora])
-
-#Restrição dos nós
-@constraint(BPontaProb, Rest_nosInter[i=1+nsis:nsis+nfic], sum(inter[j] for j in ApontadorIntercambio[findall(x -> x>0, ApontadorIntercambio[:,i]),i]) -
-    sum(inter[j] for j in ApontadorIntercambio[i,findall(x -> x>0, ApontadorIntercambio[i,:])]) == 0)
-
-#---> Restrições de Agrupamento de Intercambio
-Agrint_reg = vec(round.(Int,Agrint["nReg"][:]))
-AgrintAponta = zeros(size(Agrint["nReg"],2),nsis+nfic,nsis+nfic)
-
-#Criando a matriz DE-PARA dos AGRINTS
-for iagr = 1:round(Int,numAgrint)
-    for j = 1:Agrint_reg[iagr]
-       isis = trunc(Int64,Agrint["De"][iagr][j]);
-       jsis = trunc(Int64,Agrint["Para"][iagr][j]);
-       AgrintAponta[iagr,isis,jsis] = iagr*trunc(Int64,Agrint["Fator"][iagr][j])
-    end
+mes = rem(iper,12);
+if mes == 0
+    mes = 12;
 end
 
-# Reserva de potencia no intercambio do NE
-@variable(BPontaProb, violaRNE >= 0);
-@constraint(BPontaProb, RNE_const,  sum(inter[j] for j in ApontadorIntercambio[findall(x -> x>0, AgrintAponta[1,:,:]),:]) -
-    sum(inter[j] for j in ApontadorIntercambio[findall(x -> x<0, AgrintAponta[1,:,:]),:])
-    - violaRNE <= Agrint["Limite"][1][iper,pat] - RORNEmax[serie,iper,hora])
-@constraint(BPontaProb, violaRNE <= RORNEmax[serie,iper,hora])
+# Deficit(iCenNS,iCenH,:,iper,hora),
+#     Excesso(iCenNS,iCenH,:,iper,hora),
+#     Interc(iCenNS,iCenH,:,:,iper,hora),
+#     ViolaRNE(iCenNS,iCenH,iper,hora),
+#     GH(iCenNS,iCenH,:,iper,hora),
+#     GHusina(iCenNS,iCenH,:,iper,hora),
+#     ViolaReservaOP(iCenNS,iCenH,:,iper,hora),
+#     ViolaReservaGer(iCenNS,iCenH,:,iper,hora),
+#     GT(iCenNS,iCenH,:,iper,hora),
+#     GTusina(iCenNS,iCenH,:,iper,hora)] =
+    resolveBP(iper, hora, serie_h, pat, nsis, nfic, nusi, nusiTerm, nInter, Mercado[:,iper].*PUMercado[:,mes,hora],
+        DispNS[icenNS,:,iper,hora], PenGH[serie_h,:,iper,pat], UHEsubsis, GHmax[serie_h,:,iper,pat],
+        ROmax[:,iper,hora], RGmax[serie_h,:,iper,pat], GHmin[serie_h,:,iper,pat], CVU[:,iper],
+        DispTerm, UTE["despacho"][serie_h,:,iper,pat], UTEsubsis, LimInter, RORNEmax[icenNS,iper,hora],
+        numAgrint, Agrint, ApontadorIntercambio, ApontadorInterc_FIC_de, ApontadorInterc_FIC_para)
 
-#Demais AGRINTS
-@constraint(BPontaProb, Agrint_const[i=1:numAgrint-1],  sum(inter[j] for j in ApontadorIntercambio[findall(x -> x>0, AgrintAponta[i+1,:,:]),:]) -
-    sum(inter[j] for j in ApontadorIntercambio[findall(x -> x<0, AgrintAponta[i+1,:,:]),:]) <= Agrint["Limite"][i+1][iper,pat])
+function resolveBP(iper, hora, serie_h, pat, nsis, nfic, nusi, nusiTerm, nInter, Mercado,
+        DispNSim, PenGH, UHEsubsis, GHMax, ROmax, RGmax, GHMin, CVU, DispTerm, Inflex,
+        UTEsubsis, LimInter, RORNEmax, numAgrint, Agrint, ApontadorIntercambio,
+        ApontadorInterc_FIC_de, ApontadorInterc_FIC_para)
 
+    # # Resolve o seguinte problema:
+    # # min sum(def) + PenInterc * sum(interc) + PenSobra * sum(sobra)
+    # #     + PenGH*sum(GHusina) + PenReservPotencia*sum(violaReservaOp)
+    # #     + PenReservGeracao*sum(violaResevaGer) + PenGT*sum(GT)
+    # #     + PenReservPotencia*sum(violaRNE)
+    # # s.a.
+    # # sum(GHusina) + sum(GTusina) + Deficit - Sobra + Imp - Exp = Mercado - DispNS
+    # # Imp < LimInterc
+    # # Exp < LimInterc
+    # # GHmin < GH - violaResevaGer < GHmax - ReservaGermax
+    # # sum(GH) - sum(violaResevaGer) - violaReservPotencia < sum(GHmax) - sum(ReservaGermax) - PenReservPotenciamax
+    # # violaReservaOp < ReservaOPmax
+    # # violaReservaGer < ReservaGermax
+    # # Inflex < GT < DispTerm
+    # # sum(interc) < Agrint
+    # # RNE - violaRNE < RNEmax - RORNEmax
+    # # violaRNE < RORNEmax
 
-# # s.a.
-# # sum(GHusina) + sum(GTusina) + Deficit - Sobra + Imp - Exp = Mercado - DispNS
-# # Imp < LimInterc
-# # Exp < LimInterc
-# # GHmin < GH - violaResevaGer < GHmax - ReservaGermax
-# # sum(GH) - sum(violaResevaGer) - violaReservPotencia < sum(GHmax) - sum(ReservaGermax) - PenReservPotenciamax
-# # violaReservaOp < ReservaOPmax
-# # violaReservaGer < ReservaGermax
-# # Inflex < GT < DispTerm
-# # sum(interc) < Agrint
-# # RNE - violaRNE < RNEmax - RORNEmax
-# # violaRNE < RORNEmax
+    #--------------------------------------------------------------------------
+    # Montagem do problema
+    #--------------------------------------------------------------------------
+    #Escolhe o solver:
+    BPontaProb = Model(with_optimizer(GLPK.Optimizer));
 
+    #--------------------------------------------------------------------------
+    # Variáveis do problema
+    #--------------------------------------------------------------------------
+    # Geração Hidráulica e Reserva de Geracao
+    @variable(BPontaProb, ghid[1:nusi] >= 0);
+    @constraint(BPontaProb,[i=1:nusi], ghid[i] >= GHmin[i])
+    @constraint(BPontaProb,[i=1:nusi], ghid[i] <= GHmax[i])
 
-# irest = 0;
-#
-# nrest = irest;             # Número de restrições
-#
-# A = zeros(nUsiHidro+nsis+numAgrint,nvar);
-#
-#
-# #---> Demais Restricoes
-# nRestricoes = 0;
-# for iRest = 1:size(Restricao,2)
-#     #verifica se deve incluir a restricao
-#     incluir = 0;
-#     #se for genérico, inclui a restricao
-#     if strcmp(Restricao(iRest).VarContr,'NULL') == 1
-#         incluir = 1;
-#     #se for incluir dependendo do valor da carga
-#     elseif strcmp(Restricao(iRest).VarContr,'CARGA') == 1
-#         #verifica de qual subsistema
-#         if Restricao(iRest).VarContrSubsis ~= 0
-#             carga = Mercado(ApontadorSistema(Restricao(iRest).VarContrSubsis));
-#         else
-#             #calcula a carga do SIN
-#             carga = sum(Mercado);
-#         end
-#         #verifica se deve incluir
-#         if ((Restricao(iRest).VarContrValor(1) == -1 || carga <= Restricao(iRest).VarContrValor(1)) && ...
-#             (Restricao(iRest).VarContrValor(2) == -1 || carga >= Restricao(iRest).VarContrValor(2)))
-#             incluir = 1;
-#         end
-#     end
-#     #inclui a restricao no PL
-#     if incluir == 1
-#         #verifica se possui limite Maximo
-#         if Restricao(iRest).LimiteMax(iper,ihora) ~= 999999999
-#             nRestricoes = nRestricoes + 1;
-#             #varre todas as UHEs envolvidas na restricao
-#             for indice = 1: size(Restricao(iRest).UHE,2)
-#                 A(nUsiHidro+nsis+numAgrint+nRestricoes,ApontadorConfHd(Restricao(iRest).UHE(indice))) = ...
-#                     Restricao(iRest).FatorUHE(indice);
-#             end
-#             #varre todas as UTEs envolvidas na restricao
-#             for indice = 1: size(Restricao(iRest).UTE,2)
-#                 A(nUsiHidro+nsis+numAgrint+nRestricoes,2*nUsiHidro+nsis+ApontadorConfT(Restricao(iRest).UTE(indice))) = ...
-#                     Restricao(iRest).FatorUTE(indice);
-#             end
-#             #varre todas as interligações envolvidas na restricao
-#             for indice = 1: size(Restricao(iRest).DE,2)
-#                 A(nUsiHidro+nsis+numAgrint+nRestricoes,IntercAponta(Restricao(iRest).DE(indice),Restricao(iRest).PARA(indice))) = ...
-#                     Restricao(iRest).FatorInter(indice);
-#             end
-#             #verifica se é uma restricao que deve incluir a reserva no
-#             #limite de intercambio
-#             if Restricao(iRest).Codigo<20
-#                 A(nUsiHidro+nsis+numAgrint+nRestricoes,ApontadorReservaRNE) = -1;
-#                 b(nUsiHidro+nsis+numAgrint+nRestricoes,1) = Restricao(iRest).LimiteMax(iper,ihora) - ...
-#                     ReservaOperativaRNE;
-#             else
-#                 b(nUsiHidro+nsis+numAgrint+nRestricoes,1) = Restricao(iRest).LimiteMax(iper,ihora);
-#             end
-#         end
-#         #verifica se possui limite Minimo
-#         if Restricao(iRest).LimiteMin(iper,ihora) ~= 999999999
-#             nRestricoes = nRestricoes + 1;
-#             #varre todas as UHEs envolvidas na restricao
-#             for indice = 1: size(Restricao(iRest).UHE,2)
-#                 A(nUsiHidro+nsis+numAgrint+nRestricoes,ApontadorConfHd(Restricao(iRest).UHE(indice))) = ...
-#                     -1*Restricao(iRest).FatorUHE(indice);
-#             end
-#             #varre todas as UTEs envolvidas na restricao
-#             for indice = 1: size(Restricao(iRest).UTE,2)
-#                 A(nUsiHidro+nsis+numAgrint+nRestricoes,2*nUsiHidro+nsis+ApontadorConfT(Restricao(iRest).UTE(indice))) = ...
-#                     -1*Restricao(iRest).FatorUTE(indice);
-#             end
-#             #varre todas as interligações envolvidas na restricao
-#             for indice = 1: size(Restricao(iRest).DE,2)
-#                 A(nUsiHidro+nsis+numAgrint+nRestricoes,IntercAponta(Restricao(iRest).DE(indice),Restricao(iRest).PARA(indice))) = ...
-#                     -1*Restricao(iRest).FatorInter(indice);
-#             end
-#             b(nUsiHidro+nsis+numAgrint+nRestricoes,1) = -1*Restricao(iRest).LimiteMin(iper,ihora);
-#         end
-#     end
-# end
-#    xlswrite('matrizA', A(:,1:250),'1','A1:IP320');
-#    xlswrite('matrizA', A(:,251:size(A,2)),'2','A1:IP320');
-#  xlswrite('matrizb', b);
-#--------------------------------------------------------------------------
-# Solução do problema
-#--------------------------------------------------------------------------
-@objective(BPontaProb, Min, sum(def[j] for j in 1:nsis)*PenDeficit
-    + PenSobra*sum(sob[j] for j in 1:nsis)
-    + sum(PenGH[serie_h,i,iper,pat]*sum(ghid[k] for k in findall(x -> x==i,UHEsubsis)) for i in 1:nsis)
-    + PenRO*sum(violaReservPotencia[j] for j in 1:nsis)
-    + PenRG*sum(violaReservaGer[k] for k in 1:nusi)
-    + sum(CVU[l,iper]*gterm[l] for l in 1:nusiTerm)
-    + PenRO*violaRNE)
+    #Reserva de Geração
+    @variable(BPontaProb, violaReservaGer[1:nusi] >= 0);
+    @constraint(BPontaProb,[i=1:nusi], violaReservaGer[i] <= RGmax[i])
 
-status = optimize!(BPontaProb)
-termination_status(BPontaProb)
+    # Reserva operativa
+    @variable(BPontaProb, violaReservPotencia[1:nsis] >= 0);
+    @constraint(BPontaProb, [i=1:nsis], violaReservPotencia[i] <= ROmax[i])
 
+    # Geração Termoelétrica
+    @variable(BPontaProb, gterm[1:nusiTerm]);
+    @constraint(BPontaProb, [i=1:nusiTerm], gterm[i] >= Inflex[i])
+    @constraint(BPontaProb, [i=1:nusiTerm], gterm[i] <= DispTerm[i])
 
-FALTA PENALIZAR INTERCAMBIO
-serie_h = 1
-# # min sum(def) + PenInterc * sum(interc) + PenSobra * sum(sobra)
-# #     + PenGH*sum(GHusina) + PenReservPotencia*sum(violaReservaOp)
-# #     + PenReservGeracao*sum(violaResevaGer) + PenGT*sum(GT)
-# #     + PenReservPotencia*sum(violaRNE)
+    # Deficit
+    @variable(BPontaProb, def[1:nsis] >= 0)
 
-[x,fval,exitflag,output] = linprog(f,A,b,Aeq,beq,lb,ub,x0,opcoes);
-if (exitflag ~= 1)
-   disp('')
-   disp(output)
-   error('Não foi encontrada uma solução ótima.')
+    # Sobras
+    @variable(BPontaProb, sob[1:nsis] >= 0);
+
+    # Intercambios
+    @variable(BPontaProb, inter[1:nInter] >= 0)
+    @constraint(BPontaProb, Rest_Inter[i=1:nInter], inter[i] <= LimInter[i][iper,hora])
+
+    #--------------------------------------------------------------------------
+    # Restrições
+    #--------------------------------------------------------------------------
+
+    # Atendimento ao mercado
+    @constraint(BPontaProb, Atend_Demanda[i=1:nsis],
+        sum(ghid[j] for j in findall(x -> x==i,UHEsubsis)) +
+        sum(gterm[j] for j in findall(x -> x==i,UTEsubsis)) + def[i] - sob[i] +
+        sum(inter[j] for j in ApontadorIntercambio[findall(x -> x>0, ApontadorIntercambio[:,i]),i]) -
+        sum(inter[j] for j in ApontadorIntercambio[i,findall(x -> x>0, ApontadorIntercambio[i,:])])
+        == Mercado[i] - DispNSim[i])
+
+    #Restrição de Geração Hidráulica
+    @constraint(BPontaProb, [i=1:nusi], ghid[i] - violaReservaGer[i]
+        <= GHmax[i] - RGmax[i])
+
+    #Restrição de Potência Operativa
+    @constraint(BPontaProb, [i=1:nsis],
+        sum(ghid[j] for j in findall(x -> x==i,UHEsubsis))
+        - sum(violaReservaGer[j] for j in findall(x -> x==i,UHEsubsis))
+        - violaReservPotencia[i]
+        <= sum(GHmax[j] for j in findall(x -> x==i,UHEsubsis))
+        - sum(RGmax[j] for j in findall(x -> x==i,UHEsubsis))
+        - ROmax[i])
+
+    #Restrição dos nós
+    @constraint(BPontaProb, Rest_nosInter[i=1+nsis:nsis+nfic],
+        sum(inter[j] for j in ApontadorIntercambio[findall(x -> x>0, ApontadorIntercambio[:,i]),i]) -
+        sum(inter[j] for j in ApontadorIntercambio[i,findall(x -> x>0, ApontadorIntercambio[i,:])]) == 0)
+
+    #---> Restrições de Agrupamento de Intercambio
+    Agrint_reg = vec(round.(Int,Agrint["nReg"][:]))
+    AgrintAponta = zeros(size(Agrint["nReg"],2),nsis+nfic,nsis+nfic)
+
+    #Criando a matriz DE-PARA dos AGRINTS
+    for iagr = 1:round(Int,numAgrint)
+        for j = 1:Agrint_reg[iagr]
+           isis = trunc(Int64,Agrint["De"][iagr][j]);
+           jsis = trunc(Int64,Agrint["Para"][iagr][j]);
+           AgrintAponta[iagr,isis,jsis] = iagr*trunc(Int64,Agrint["Fator"][iagr][j])
+        end
+    end
+
+    # Reserva de potencia no intercambio do NE
+    @variable(BPontaProb, violaRNE >= 0);
+    @constraint(BPontaProb, RNE_const,
+        sum(inter[j] for j in ApontadorIntercambio[findall(x -> x>0, AgrintAponta[1,:,:]),:])
+        - sum(inter[j] for j in ApontadorIntercambio[findall(x -> x<0, AgrintAponta[1,:,:]),:])
+        - violaRNE <= Agrint["Limite"][1][iper,pat] - RORNEmax)
+    @constraint(BPontaProb, violaRNE <= RORNEmax)
+
+    #Demais AGRINTS
+    @constraint(BPontaProb, Agrint_const[i=1:numAgrint-1],
+        sum(inter[j] for j in ApontadorIntercambio[findall(x -> x>0, AgrintAponta[i+1,:,:]),:]) -
+        sum(inter[j] for j in ApontadorIntercambio[findall(x -> x<0, AgrintAponta[i+1,:,:]),:])
+        <= Agrint["Limite"][i+1][iper,pat])
+
+    #--------------------------------------------------------------------------
+    # Função objetivo
+    #--------------------------------------------------------------------------
+    @objective(BPontaProb, Min,
+        sum(def[j] for j in 1:nsis)*PenDeficit
+        + PenSobra*sum(sob[j] for j in 1:nsis)
+        + sum(PenGH[i]*sum(ghid[k] for k in findall(x -> x==i,UHEsubsis)) for i in 1:nsis)
+        + PenRO*sum(violaReservPotencia[j] for j in 1:nsis)
+        + PenRG*sum(violaReservaGer[k] for k in 1:nusi)
+        + sum(CVU[l]*gterm[l] for l in 1:nusiTerm)
+        + PenRO*violaRNE
+        + PenInterc*sum(inter[j] for j in ApontadorIntercambio[findall(x -> x>0, ApontadorIntercambio[1:nsis,1:nsis])])
+        + (PenInterc/2)*(sum(inter[j] for j in ApontadorInterc_FIC_de[findall(x -> x>0, ApontadorInterc_FIC_de[:,:])])
+            + sum(inter[j] for j in ApontadorInterc_FIC_para[findall(x -> x>0, ApontadorInterc_FIC_para[:,:])])))
+
+    #--------------------------------------------------------------------------
+    # Solução do problema
+    #--------------------------------------------------------------------------
+    optimize!(BPontaProb)
+    status = termination_status(BPontaProb)
+    solution_obj = objective_value(BPontaProb)
+    solution_def = value.(def)
+    solution_exc = value.(sob)
+    solution_interc = value.(inter)
+    solution_violaRNE = value.(violaRNE)
+    solution_GH = zeros(nsis)
+    for i=1:nsis
+        solution_GH[i] = sum(value.(ghid)[j] for j in findall(x -> x==i,UHEsubsis))
+    end
+    solution_GHusina = value.(ghid)
+    solution_violaReservaOP = value.(violaReservPotencia)
+    solution_violaReservaG = value.(violaReservaGer)
+    solution_GT = zeros(nsis)
+    for i=1:maximum(UTEsubsis)
+        solution_GT[i] = sum(value.(gterm)[j] for j in findall(x -> x==i,UTEsubsis))
+    end
+    solution_GTusina = value.(gterm)
+
+    if status == MOI.OPTIMAL
+        println("Problema convergido!")
+        return solution_def, solution_exc, solution_interc, solution_violaRNE,
+            solution_GH, solution_GHusina, solution_violaReservaOP,
+            solution_violaReservaG, solution_GT, solution_GTusina, solution_obj
+    else
+        println("Problema não convergido. Não foi encontrada uma solução ótima.")
+        #break
+    end
+
 end
 
 #--------------------------------------------------------------------------
@@ -510,3 +392,80 @@ inicio = ivar+1;
  ViolaRNE = x(ivar);
 
  #end
+
+
+ # #---> Demais Restricoes não implementadas
+ # nRestricoes = 0;
+ # for iRest = 1:size(Restricao,2)
+ #     #verifica se deve incluir a restricao
+ #     incluir = 0;
+ #     #se for genérico, inclui a restricao
+ #     if strcmp(Restricao(iRest).VarContr,'NULL') == 1
+ #         incluir = 1;
+ #     #se for incluir dependendo do valor da carga
+ #     elseif strcmp(Restricao(iRest).VarContr,'CARGA') == 1
+ #         #verifica de qual subsistema
+ #         if Restricao(iRest).VarContrSubsis ~= 0
+ #             carga = Mercado(ApontadorSistema(Restricao(iRest).VarContrSubsis));
+ #         else
+ #             #calcula a carga do SIN
+ #             carga = sum(Mercado);
+ #         end
+ #         #verifica se deve incluir
+ #         if ((Restricao(iRest).VarContrValor(1) == -1 || carga <= Restricao(iRest).VarContrValor(1)) && ...
+ #             (Restricao(iRest).VarContrValor(2) == -1 || carga >= Restricao(iRest).VarContrValor(2)))
+ #             incluir = 1;
+ #         end
+ #     end
+ #     #inclui a restricao no PL
+ #     if incluir == 1
+ #         #verifica se possui limite Maximo
+ #         if Restricao(iRest).LimiteMax(iper,ihora) ~= 999999999
+ #             nRestricoes = nRestricoes + 1;
+ #             #varre todas as UHEs envolvidas na restricao
+ #             for indice = 1: size(Restricao(iRest).UHE,2)
+ #                 A(nUsiHidro+nsis+numAgrint+nRestricoes,ApontadorConfHd(Restricao(iRest).UHE(indice))) = ...
+ #                     Restricao(iRest).FatorUHE(indice);
+ #             end
+ #             #varre todas as UTEs envolvidas na restricao
+ #             for indice = 1: size(Restricao(iRest).UTE,2)
+ #                 A(nUsiHidro+nsis+numAgrint+nRestricoes,2*nUsiHidro+nsis+ApontadorConfT(Restricao(iRest).UTE(indice))) = ...
+ #                     Restricao(iRest).FatorUTE(indice);
+ #             end
+ #             #varre todas as interligações envolvidas na restricao
+ #             for indice = 1: size(Restricao(iRest).DE,2)
+ #                 A(nUsiHidro+nsis+numAgrint+nRestricoes,IntercAponta(Restricao(iRest).DE(indice),Restricao(iRest).PARA(indice))) = ...
+ #                     Restricao(iRest).FatorInter(indice);
+ #             end
+ #             #verifica se é uma restricao que deve incluir a reserva no
+ #             #limite de intercambio
+ #             if Restricao(iRest).Codigo<20
+ #                 A(nUsiHidro+nsis+numAgrint+nRestricoes,ApontadorReservaRNE) = -1;
+ #                 b(nUsiHidro+nsis+numAgrint+nRestricoes,1) = Restricao(iRest).LimiteMax(iper,ihora) - ...
+ #                     ReservaOperativaRNE;
+ #             else
+ #                 b(nUsiHidro+nsis+numAgrint+nRestricoes,1) = Restricao(iRest).LimiteMax(iper,ihora);
+ #             end
+ #         end
+ #         #verifica se possui limite Minimo
+ #         if Restricao(iRest).LimiteMin(iper,ihora) ~= 999999999
+ #             nRestricoes = nRestricoes + 1;
+ #             #varre todas as UHEs envolvidas na restricao
+ #             for indice = 1: size(Restricao(iRest).UHE,2)
+ #                 A(nUsiHidro+nsis+numAgrint+nRestricoes,ApontadorConfHd(Restricao(iRest).UHE(indice))) = ...
+ #                     -1*Restricao(iRest).FatorUHE(indice);
+ #             end
+ #             #varre todas as UTEs envolvidas na restricao
+ #             for indice = 1: size(Restricao(iRest).UTE,2)
+ #                 A(nUsiHidro+nsis+numAgrint+nRestricoes,2*nUsiHidro+nsis+ApontadorConfT(Restricao(iRest).UTE(indice))) = ...
+ #                     -1*Restricao(iRest).FatorUTE(indice);
+ #             end
+ #             #varre todas as interligações envolvidas na restricao
+ #             for indice = 1: size(Restricao(iRest).DE,2)
+ #                 A(nUsiHidro+nsis+numAgrint+nRestricoes,IntercAponta(Restricao(iRest).DE(indice),Restricao(iRest).PARA(indice))) = ...
+ #                     -1*Restricao(iRest).FatorInter(indice);
+ #             end
+ #             b(nUsiHidro+nsis+numAgrint+nRestricoes,1) = -1*Restricao(iRest).LimiteMin(iper,ihora);
+ #         end
+ #     end
+ # end
