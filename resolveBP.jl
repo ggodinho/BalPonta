@@ -56,7 +56,6 @@ PenInterc = 0.01;
 PenDeficit = 3000;
 PenSobra = 0.001;
 #PenGH = [4 2 3 2 1 1 1 1 1 1 1]; # Prioriza a geração dos subsistemas a fio d'agua (Mad., B. Monte e T. Pires)
-PenGT = 10;
 PenRG = maximum(CVU)*1.02;
 PenRO = maximum(CVU)*1.01;
 
@@ -171,7 +170,7 @@ Inflex = UTE["inflex"][1:nusiTerm,iper][1:nusiTerm]
 DispTerm = UTE["disp"][1:nusiTerm,iper][1:nusiTerm]
 DispNSim = DispNS[serie,:,iper,hora]
 pat = ApontadorPatamarCarga[iper,hora]
-
+serie_h = 1
 
 function resolveBP(iper, ihora, PatamarCarga, nsis, nfic, nUsiHidro, nUsiTerm, ApontadorSistema, Sistema, Mercado, DispNS, PenGH, ...
         #UHEsubsis, DispHidro, ReservaOperativa, ReservaGeracao, GHMin, CVU, DispTerm, Inflex, ...
@@ -210,42 +209,22 @@ BPontaProb = Model(with_optimizer(GLPK.Optimizer));
 # Geração Hidroeletrica
 # ghid_ub = zeros(nsis)
 # reservaP_ub = zeros(nsis)
-# for isis=1:nsis
-#     if isis == 3 || ReservaIntercambioNE == 1
-#         #se a reserva de potencia do nordeste estiver no intercambio nao
-#         #retira da hidraulica
-#         ghid_ub[isis] = DispHidro[isis];
-#         reservaP_ub[isis] = 0;
-#         # Limite Superior
-#         else
-#         ghid_ub[isis] = DispHidro[isis] - Mercado[isis]*reserva/100;
-#         reservaP_ub[isis] = Mercado[isis]*reserva/100;   # Limite Superior
-#     end
-# end
 
 # Geração Hidráulica e Reserva de Geracao
 @variable(BPontaProb, ghid[1:nusi] >= 0);
+@constraint(BPontaProb,[i=1:nusi], ghid[i] >= GHmin[serie_h,i,iper,pat])
+@constraint(BPontaProb,[i=1:nusi], ghid[i] <= GHmax[serie_h,i,iper,pat])
+
+#Reserva de Geração
 @variable(BPontaProb, violaReservaGer[1:nusi] >= 0);
-
-if ReservaIntercambioNE[iper] == 1
-    # se a reserva de potencia do nordeste estiver no intercambio
-    # nao retira da hidraulica
-    @constraint(BPontaProb,[i=1:nsis], ghid[i] >= GHmin[1,i,iper,pat])
-    @constraint(BPontaProb,[i=1:nsis], ghid[i] <= GHmax[1,i,iper,pat])
-else
-    @constraint(BPontaProb,[i=1:nusi], ghid[i] - violaReservaGer[i]>= GHmin[1,i,iper,pat])
-    @constraint(BPontaProb,[i=1:nusi], ghid[i] - violaReservaGer[i]<= GHmax[1,i,iper,pat]
-        - ReservaGeracao[1,i,iper,pat])
-    @constraint(BPontaProb, [i=1:nusi], violaReservaGer[i] <= ReservaGeracao[1,i,iper,pat])
-end
-
+@constraint(BPontaProb,[i=1:nusi], violaReservaGer[i] <= ReservaGeracao[serie_h,i,iper,pat])
 
 # Reserva operativa
 @variable(BPontaProb, violaReservPotencia[1:nsis] >= 0);
 @constraint(BPontaProb, [i=1:nsis], violaReservPotencia[i] <= ROmax[i,iper,hora])
 
 # Geração Termoelétrica
-@variable(BPontaProb, gterm[1:nusiTerm] >= 0);
+@variable(BPontaProb, gterm[1:nusiTerm]);
 @constraint(BPontaProb, [i=1:nusiTerm], gterm[i] >= Inflex[i])
 @constraint(BPontaProb, [i=1:nusiTerm], gterm[i] <= DispTerm[i])
 
@@ -256,35 +235,34 @@ end
 @variable(BPontaProb, sob[1:nsis] >= 0);
 
 # Intercambios
-#Falta declarar penalidades dos intercâmbios e apontador adequadamente...
-
-#Intercambio
-#inter_ub = zeros(size(Intercambio["origem"],2))
-#for i=1:size(Intercambio["origem"],2)
-        #inter_ub[i] = Intercambio["capacidade"][:][i][5,4]; #[5,4 = mes e patamar], serão variaveis de entrada
-#end
-
-Liminter = zeros(nInter)
-for i=1:nInter
-    Liminter[i] = Intercambio["capacidade"][i][iper,hora]
-end
-
 @variable(BPontaProb, inter[1:nInter] >= 0)
+@constraint(BPontaProb, Rest_Inter[i=1:nInter], inter[i] <= Intercambio["capacidade"][i][iper,hora])
+# Liminter = zeros(nInter)
+# for i=1:nInter
+#     Liminter[i] = Intercambio["capacidade"][i][iper,hora]
+# end
 
 #---> Restrições do problema
-@constraint(BPontaProb, Rest_Inter[i=1:nInter], inter[i] <= Liminter[i])
-
 # Atendimento ao mercado
-@constraint(BPontaProb, Atend_Demanda[i=1:nsis],sum(ghid[j] for j in findall(x -> x==i,UHEsubsis)) +
+@constraint(BPontaProb, Atend_Demanda[i=1:nsis],
+    sum(ghid[j] for j in findall(x -> x==i,UHEsubsis)) +
     sum(gterm[j] for j in findall(x -> x==i,UTEsubsis)) + def[i] - sob[i] +
     sum(inter[j] for j in ApontadorIntercambio[findall(x -> x>0, ApontadorIntercambio[:,i]),i]) -
     sum(inter[j] for j in ApontadorIntercambio[i,findall(x -> x>0, ApontadorIntercambio[i,:])])
     == Mercado[i,iper] - DispNSim[i])
 
-@constraint(BPontaProb, [i=1:nsis], sum(ghid[j] for j in findall(x -> x==i,UHEsubsis)) -
-    sum(violaReservaGer[j] for j in findall(x -> x==i,UHEsubsis)) - violaReservPotencia[i]
-    <= sum(GHmax[1,j,iper,pat] for j in findall(x -> x==i,UHEsubsis)) -
-    ReservaGeracao_sist[1,i,iper,pat] - ROmax[i,iper,hora])
+#Restrição de Geração Hidráulica
+@constraint(BPontaProb, [i=1:nusi], ghid[i] - violaReservaGer[i]
+    <= GHmax[serie_h,i,iper,pat] - ReservaGeracao[serie_h,i,iper,pat])
+
+#Restrição de Potência Operativa
+@constraint(BPontaProb, [i=1:nsis],
+    sum(ghid[j] for j in findall(x -> x==i,UHEsubsis))
+    - sum(violaReservaGer[j] for j in findall(x -> x==i,UHEsubsis))
+    - violaReservPotencia[i]
+    <= sum(GHmax[serie_h,j,iper,pat] for j in findall(x -> x==i,UHEsubsis))
+    - sum(ReservaGeracao[serie_h,j,iper,pat] for j in findall(x -> x==i,UHEsubsis))
+    - ROmax[i,iper,hora])
 
 #Restrição dos nós
 @constraint(BPontaProb, Rest_nosInter[i=1+nsis:nsis+nfic], sum(inter[j] for j in ApontadorIntercambio[findall(x -> x>0, ApontadorIntercambio[:,i]),i]) -
@@ -417,13 +395,18 @@ end
 #--------------------------------------------------------------------------
 # Solução do problema
 #--------------------------------------------------------------------------
-@objective(BPontaProb,Min,sum(def[j] for j in 1:nsis)*PenDeficit + PenSobra*sum(sob[j] for j in 1:nsis) +
-    sum(PenGH[serie_h,i,iper,pat]*sum(ghid[k] for k in findall(x -> x==i,UHEsubsis)) for i in 1:nsis)
-    + PenRO*sum(violaReservPotencia[j] for j in 1:nsis) +
-    PenRG*sum(violaReservaGer[k] for k in 1:nusi)+ PenGT*sum(gterm[l] for l in 1:nusiTerm) + PenRO*violaRNE)
+@objective(BPontaProb, Min, sum(def[j] for j in 1:nsis)*PenDeficit
+    + PenSobra*sum(sob[j] for j in 1:nsis)
+    + sum(PenGH[serie_h,i,iper,pat]*sum(ghid[k] for k in findall(x -> x==i,UHEsubsis)) for i in 1:nsis)
+    + PenRO*sum(violaReservPotencia[j] for j in 1:nsis)
+    + PenRG*sum(violaReservaGer[k] for k in 1:nusi)
+    + sum(CVU[l,iper]*gterm[l] for l in 1:nusiTerm)
+    + PenRO*violaRNE)
 
 status = optimize!(BPontaProb)
 termination_status(BPontaProb)
+
+
 FALTA PENALIZAR INTERCAMBIO
 serie_h = 1
 # # min sum(def) + PenInterc * sum(interc) + PenSobra * sum(sobra)
